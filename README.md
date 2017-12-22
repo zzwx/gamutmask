@@ -1,20 +1,35 @@
 # Gamut Mask Tools
 
-## Using Glide (as if using npm)
+## To Compile and Install From Source
 
-* https://glide.sh/
-* http://glide.readthedocs.io/en/latest/vendor/
+To resolve dependency tree, `dep` should be installed:
 
-Glide should be installed first.
-
-Resolve The Dependency Tree, install them into "vendor":
 ```
-$ glide update
-$ glide install
+$ brew install dep
+$ brew upgrade dep
 ```
 
-Adding dependency (for ex. ``$ go get -u github.com/kataras/iris/iris``):
+"vendor" folder will be populated with necessary dependencies by running
+the following from the project's root:
+
 ```
-$ glide get github.com/kataras/iris/iris
+$ dep ensure
 ```
 
+## ``godep``-enabling Log
+
+* https://github.com/golang/dep
+* https://github.com/golang/dep/blob/master/docs/FAQ.md
+
+Initialization from project's root directory:
+
+```
+$ dep init
+```
+
+Useful commands:
+
+```
+$ dep status
+$ dep ensure -update
+```
