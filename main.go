@@ -13,8 +13,7 @@ import (
 	"os/signal"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/kataras/iris"
-	"github.com/zzwx/gamutmask/src/cli"
+	"github.com/zzwx/gamutmask/internal/cli"
 )
 
 const (
@@ -70,13 +69,6 @@ func main() {
 	//if len(argsWithoutProg) > 0 && strings.ToLower(argsWithoutProg[0]) == "server" {
 	if isServer {
 		fmt.Println("Starting a server...")
-		//ir := iris.New()
-		//ir.Get("/hi", func(ctx *iris.Context) {
-		//	ctx.Writef("Hi %s", "iris")
-		//})
-		//ir.Use
-		//ir.Get("/", index)
-		//ir.Listen(":8080")
 	} else {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -90,10 +82,6 @@ func main() {
 		<-make(chan int) // Blocking main() forever
 	}
 
-}
-
-func index(ctx *iris.Context) {
-	ctx.Render("index.html", struct{ Name string }{Name: "iris"})
 }
 
 func resetTimer(timer *time.Timer) {

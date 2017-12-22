@@ -25,9 +25,5 @@
   version = "^1.4.2"
 
 [[constraint]]
-  name = "github.com/kataras/iris"
-  version = "^8.5.7"
-
-[[constraint]]
   branch = "master"
   name = "github.com/lucasb-eyer/go-colorful"

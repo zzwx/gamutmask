@@ -10,8 +10,8 @@ import (
 
 	"strconv"
 
-	"github.com/zzwx/gamutmask/src/lib"
-	"gopkg.in/cheggaaa/pb.v1"
+	"github.com/zzwx/gamutmask/internal/lib"
+	"github.com/zzwx/gamutmask/vendor_/gopkg.in/cheggaaa/pb.v1"
 )
 
 // Run will execute GenerateGamutMask against inputFileName and generate outputFileName
