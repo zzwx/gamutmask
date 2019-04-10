@@ -2,8 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"image"
 	"image/jpeg"
+	"image/png"
 	"os"
+	"path/filepath"
 	"time"
 
 	"runtime"
@@ -15,15 +18,15 @@ import (
 	"github.com/zzwx/gamutmask/internal/lib"
 )
 
-// Run will execute GenerateGamutMask against inputFileName and generate outputFileName
-func Run(outputFileName string, inputFileName string) (exitCode int) {
+// RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
+func RunGamutFunc(outputFileName string, inputFileName string) (exitCode int, err error) {
 	bar := newBar(4)
 
 	exitCode = 0
 
 	f, err := os.Open(inputFileName)
 	if err != nil {
-		return // skip non-existing file
+		return exitCode, nil // skip non-existing file
 	}
 	defer f.Close()
 
@@ -34,14 +37,30 @@ func Run(outputFileName string, inputFileName string) (exitCode int) {
 	bar.Increment()
 	bar.Update()
 
-	img, err := jpeg.Decode(f)
-	if err != nil {
-		panic(err)
+	var img image.Image
+	switch filepath.Ext(f.Name()) {
+	case ".jpg":
+		img, err = jpeg.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	case ".png":
+		img, err = png.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	default:
+		panic(filepath.Ext(f.Name()) + " Unsupported image type")
 	}
+
+	if img == nil {
+		return 1, fmt.Errorf("Image couldn't be read: %s", f.Name())
+	}
+
 	bar.Increment()
 	bar.Update()
 
-	wheel := lib.GenerateGamutMask(img, 150, 150)
+	wheel := lib.GenerateGamutMask(img, 250, 250)
 	bar.Increment()
 	bar.Update()
 
@@ -52,12 +71,18 @@ func Run(outputFileName string, inputFileName string) (exitCode int) {
 	bar.Increment()
 	bar.Update()
 
-	jpeg.Encode(out, wheel, &jpeg.Options{Quality: 100})
+	switch filepath.Ext(f.Name()) {
+	case ".jpg":
+		jpeg.Encode(out, wheel, &jpeg.Options{Quality: 100})
+	case ".png":
+		png.Encode(out, wheel)
+	}
 
 	eraseLine()
 	fmt.Printf("  %8.2fs (%vpx)\n", time.Since(start).Seconds(),
 		comma(strconv.Itoa(img.Bounds().Dx()*img.Bounds().Dy())))
-	return
+
+	return 0, nil
 }
 
 func eraseLine() {

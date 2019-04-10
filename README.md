@@ -1,35 +1,33 @@
 # Gamut Mask Tools
 
+## Requirement
+
+* go 1.12
+
 ## To Compile and Install From Source
 
-To resolve dependency tree, `dep` should be installed:
+To resolve dependency tree, simply `go build`.
 
 ```
-$ brew install dep
-$ brew upgrade dep
+$ go mod verify
+$ go build
 ```
 
-"vendor" folder will be populated with necessary dependencies by running
-the following from the project's root:
+In order to run you will need an output folder. By default the ``_output`` folder is used which you'll need to create if you want to use the default one:
 
 ```
-$ dep ensure
+$ mkdir _output
 ```
 
-## ``godep``-enabling Log
-
-* https://github.com/golang/dep
-* https://github.com/golang/dep/blob/master/docs/FAQ.md
-
-Initialization from project's root directory:
+You can certainly modify output folder by passing ``--output`` parameter:
 
 ```
-$ dep init
+$ gamutmask.exe --output ./output
 ```
 
-Useful commands:
+Once executed the tool monitors the `./_input` folder for images. That can also be changed by passing a value after `--intput`` parameter:
 
 ```
-$ dep status
-$ dep ensure -update
+$ gamutmask.exe --input ./input
 ```
+

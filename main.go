@@ -12,8 +12,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/zzwx/gamutmask/internal/cli"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 const (
@@ -33,7 +34,19 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Println("Input folder:", input, "\nOutput folder:", output, "\nMonitoring...")
+	fmt.Println("Input folder:", input)
+	fmt.Println("Output folder:", output)
+
+	if _, err := os.Stat(input); os.IsNotExist(err) {
+		fmt.Printf("Error: Input folder \"%s\" not found\n", input)
+		os.Exit(1)
+	}
+	if _, err := os.Stat(output); os.IsNotExist(err) {
+		fmt.Printf("Error: Output folder \"%s\" not found\n", output)
+		os.Exit(1)
+	}
+
+	fmt.Println("Monitoring:", input, "for new and updated images...")
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -42,6 +55,7 @@ func main() {
 	defer watcher.Close()
 	err = watcher.Add(input)
 	if err != nil {
+		fmt.Println("Watcher error: ")
 		log.Fatal(err)
 	}
 
@@ -60,7 +74,7 @@ func main() {
 			case <-watcher.Errors:
 				// Skip the errors
 			case <-timer.C:
-				cli.ProcessChangedFilesOnly(input, output, cli.Run)
+				cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
 			}
 		}
 	}()

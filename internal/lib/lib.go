@@ -3,6 +3,7 @@ package lib
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -13,6 +14,9 @@ func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image
 	bounds := img.Bounds()
 
 	wheel = image.NewRGBA64(image.Rect(0, 0, maskWidth, maskHeight))
+
+	// Fill with white background
+	draw.Draw(wheel, bounds, &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
 
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
