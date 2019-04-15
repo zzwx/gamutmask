@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Generating gamutmask images from existing image files like this:
+Generating gamutmask images from existing image files like this (width/height=250, paddingX/paddingY=2)
 
-![gamut example](https://user-images.githubusercontent.com/8169082/56142824-54c85580-5f6d-11e9-9efb-3ba2007bd253.png)
+![(Van Gogh Starry Night)](https://user-images.githubusercontent.com/8169082/56171963-5c135180-5fb5-11e9-9b77-b50144c41fac.png)
 
-Gamutmask tool once executed generates gamutmask images for every image found in the `input` folder. By default it runs until stopped.
+> Van Gogh Starry Night
+
+Gamutmask tool once executed generates gamutmask images for every image found in the `input` folder. By default it runs until stopped thus monitoring for updated or added files.
 
 To run only once:
 ```
