@@ -18,10 +18,22 @@ import (
 	"github.com/zzwx/gamutmask/internal/lib"
 )
 
+type RunGamutSettings struct {
+	Width    int
+	Height   int
+	PaddingX int
+	PaddingY int
+}
+
+var DefaultRunGamutSettings = RunGamutSettings{250, 250, 2, 2}
+
 // RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
 // The file generated is going to be PNG so the outputFileName by convention
 // is going to be <inputFileNameWithExtention>.png
-func RunGamutFunc(outputFileName string, inputFileName string) (exitCode int, err error) {
+func RunGamutFunc(outputFileName string, inputFileName string, settings *RunGamutSettings) (exitCode int, err error) {
+	if settings == nil {
+		settings = &DefaultRunGamutSettings
+	}
 	bar := newBar(4)
 
 	exitCode = 0
@@ -62,7 +74,7 @@ func RunGamutFunc(outputFileName string, inputFileName string) (exitCode int, er
 	bar.Increment()
 	bar.Update()
 
-	wheel := lib.GenerateGamutMask(img, 250, 250)
+	wheel := lib.GenerateGamutMask(img, settings.Width, settings.Height, settings.PaddingX, settings.PaddingY)
 	bar.Increment()
 	bar.Update()
 

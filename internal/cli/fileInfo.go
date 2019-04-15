@@ -48,7 +48,9 @@ var mtx sync.Mutex
 
 // ProcessChangedFilesOnly will check if the input folder has any changes and update output folder + the JSON file
 // and execute runFunction(outputFileFullPath,inputFileFullPath) against each changed file
-func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, runFunction func(string, string) (int, error)) {
+func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string,
+	runFunction func(string, string, *RunGamutSettings) (int, error),
+	settings *RunGamutSettings) {
 
 	// We don't want this function to be called simultaneously
 	mtx.Lock()
@@ -106,7 +108,7 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 			}
 
 			if foundIndex < 0 || processIt {
-				runFunction(outputFolderName+"/"+outputFileName, inputFolderName+"/"+inputFileName)
+				runFunction(outputFolderName+"/"+outputFileName, inputFolderName+"/"+inputFileName, settings)
 				if processedMD5 == "" {
 					processedMD5 = getFileMD5(inputFolderName + "/" + inputFileName)
 				}

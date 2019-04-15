@@ -47,6 +47,15 @@ func main() {
 	var output string
 	flag.StringVar(&output, "output", outputDefault, "Folder name where output files should be saved")
 
+	var width int
+	var height int
+	var paddingX int
+	var paddingY int
+	flag.IntVar(&width, "width", 250, "Widgth of the resulting gamut image")
+	flag.IntVar(&height, "height", 250, "Height of the resulting gamut image")
+	flag.IntVar(&paddingX, "paddingX", 2, "Widgth of the resulting gamut image")
+	flag.IntVar(&paddingY, "paddingY", 2, "Widgth of the resulting gamut image")
+
 	flag.Parse()
 
 	argsWithoutProg := os.Args[1:]
@@ -87,6 +96,13 @@ func main() {
 		cli.SanitizeOutputFolder(output, cli.FileInfoList{})
 	}
 
+	var settings = cli.RunGamutSettings{
+		Width:    width,
+		Height:   height,
+		PaddingX: paddingX,
+		PaddingY: paddingY,
+	}
+
 	if monitor {
 		fmt.Println("Monitoring:", input, "for new and updated images...")
 
@@ -116,7 +132,7 @@ func main() {
 				case <-watcher.Errors:
 					// Skip the errors
 				case <-timer.C:
-					cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
+					cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc, &settings)
 				}
 			}
 		}()
@@ -133,7 +149,7 @@ func main() {
 		<-make(chan int) // Blocking main() forever
 
 	} else {
-		cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
+		cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc, &settings)
 	}
 
 }

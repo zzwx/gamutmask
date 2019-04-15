@@ -10,7 +10,7 @@ import (
 )
 
 // GenerateGamutMask generates a wheel (as *image.RGBA64) of Gamut Mask with a size of maskWidth, maskHeight
-func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image.RGBA64) {
+func GenerateGamutMask(img image.Image, maskWidth, maskHeight, paddingX, paddingY int) (wheel *image.RGBA64) {
 	bounds := img.Bounds()
 
 	wheel = image.NewRGBA64(image.Rect(0, 0, maskWidth, maskHeight))
@@ -19,9 +19,10 @@ func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image
 	context.DrawEllipse(float64(maskWidth)/2, float64(maskHeight)/2, float64(maskWidth)/2, float64(maskHeight)/2)
 	context.SetRGB(0, 0, 0)
 	context.Fill()
+	// context.SavePNG(fmt.Sprintf("test_%d.png", time.Now().Nanosecond()))
 
-	for x := bounds.Min.X; x < bounds.Max.X; x++ {
-		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+	for x := 0; x < maskWidth; x++ {
+		for y := 0; y < maskHeight; y++ {
 			r, g, b, a := context.Image().At(x, y).RGBA()
 			wheel.SetRGBA64(int(x), int(y),
 				color.RGBA64{uint16(r), uint16(g), uint16(b), uint16(a)})
@@ -32,17 +33,13 @@ func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image
 	// Fill with black background
 	//draw.Draw(wheel, bounds, &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
 
-	// if true {
-	// 	return wheel
-	// }
-
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 			r, g, b, _ := img.At(x, y).RGBA()
 			h, s, v := hsv(r, g, b)
 			// Rotating by -math.Pi/2 so Red appears on top
-			x := math.Cos(h*math.Pi/180-math.Pi/2)*s*float64(maskWidth)/2.0 + float64(maskWidth)/2.0
-			y := math.Sin(h*math.Pi/180-math.Pi/2)*s*float64(maskHeight)/2.0 + float64(maskHeight)/2.0
+			x := math.Cos(h*math.Pi/180-math.Pi/2)*s*float64(maskWidth-paddingX*2)/2.0 + float64(maskWidth)/2.0
+			y := math.Sin(h*math.Pi/180-math.Pi/2)*s*float64(maskHeight-paddingY*2)/2.0 + float64(maskHeight)/2.0
 
 			current := wheel.RGBA64At(int(x), int(y))
 			_, _, currentV := hsv(uint32(current.R), uint32(current.G), uint32(current.B))

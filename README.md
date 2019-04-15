@@ -35,6 +35,36 @@ For help issue
 $ gamutmask help
 ```
 
+Command line also supports the following parameters:
+* `width`
+* `height`
+* `paddingX`
+* `paddingY`
+
+## Full Help
+
+```
+  -fresh
+        Start fresh by deleting all images from output
+  -height int
+        Height of the resulting gamut image (default 250)
+  -help
+        Print this help
+  -input string
+        Folder name where input files are located (default "./_input")
+  -monitor
+        Monitor input folder for new and updated files (default true)
+  -once
+        Shortuct to monitor=false
+  -output string
+        Folder name where output files should be saved (default "./_output")
+  -paddingX int
+        Widgth of the resulting gamut image (default 2)
+  -paddingY int
+        Widgth of the resulting gamut image (default 2)
+  -width int
+        Widgth of the resulting gamut image (default 250)
+```
 
 ## Usage as a Library
 
