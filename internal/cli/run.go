@@ -19,6 +19,8 @@ import (
 )
 
 // RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
+// The file generated is going to be PNG so the outputFileName by convention
+// is going to be <inputFileNameWithExtention>.png
 func RunGamutFunc(outputFileName string, inputFileName string) (exitCode int, err error) {
 	bar := newBar(4)
 
@@ -71,12 +73,8 @@ func RunGamutFunc(outputFileName string, inputFileName string) (exitCode int, er
 	bar.Increment()
 	bar.Update()
 
-	switch filepath.Ext(f.Name()) {
-	case ".jpg":
-		jpeg.Encode(out, wheel, &jpeg.Options{Quality: 100})
-	case ".png":
-		png.Encode(out, wheel)
-	}
+	// Always using png to encode
+	png.Encode(out, wheel)
 
 	eraseLine()
 	fmt.Printf("  %8.2fs (%vpx)\n", time.Since(start).Seconds(),

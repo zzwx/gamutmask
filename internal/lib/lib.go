@@ -3,9 +3,9 @@ package lib
 import (
 	"image"
 	"image/color"
-	"image/draw"
 	"math"
 
+	"github.com/fogleman/gg"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -15,8 +15,26 @@ func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image
 
 	wheel = image.NewRGBA64(image.Rect(0, 0, maskWidth, maskHeight))
 
-	// Fill with white background
-	draw.Draw(wheel, bounds, &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
+	context := gg.NewContext(maskWidth, maskHeight)
+	context.DrawEllipse(float64(maskWidth)/2, float64(maskHeight)/2, float64(maskWidth)/2, float64(maskHeight)/2)
+	context.SetRGB(0, 0, 0)
+	context.Fill()
+
+	for x := bounds.Min.X; x < bounds.Max.X; x++ {
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			r, g, b, a := context.Image().At(x, y).RGBA()
+			wheel.SetRGBA64(int(x), int(y),
+				color.RGBA64{uint16(r), uint16(g), uint16(b), uint16(a)})
+			//wheel.SetRGBA(x, y, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+		}
+	}
+
+	// Fill with black background
+	//draw.Draw(wheel, bounds, &image.Uniform{color.RGBA{0, 0, 0, 255}}, image.ZP, draw.Src)
+
+	// if true {
+	// 	return wheel
+	// }
 
 	for x := bounds.Min.X; x < bounds.Max.X; x++ {
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {

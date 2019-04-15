@@ -13,12 +13,13 @@ import (
 	"time"
 )
 
-type fileInfoList struct {
-	Items []*fileInfo
+type FileInfoList struct {
+	Items []*FileInfo
 }
 
-type fileInfo struct {
-	Name        string
+type FileInfo struct {
+	InputName   string
+	OutputName  string
 	MD5         string    `json:",omitempty"`
 	Size        int64     // Excessive data in case MD5 appears the same
 	CreatedAt   time.Time // Excessive data in case MD5 appears the same
@@ -29,15 +30,15 @@ type fileInfo struct {
 	FileFound bool `json:"-"`
 }
 
-func unmarshalJSON(r io.Reader) (*fileInfoList, error) {
-	var result fileInfoList
+func unmarshalJSON(r io.Reader) (*FileInfoList, error) {
+	var result FileInfoList
 	if err := json.NewDecoder(r).Decode(&result); err != nil {
 		return nil, err
 	}
 	return &result, nil
 }
 
-func marshalJSON(w io.Writer, data *fileInfoList) error {
+func marshalJSON(w io.Writer, data *FileInfoList) error {
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(data)
@@ -59,7 +60,7 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 		panic(err)
 	}
 
-	fileInfoList := fileInfoList{}
+	fileInfoList := FileInfoList{}
 
 	// Restore data from the file, if exists
 	file, err := os.Open(JSONFileName)
@@ -78,21 +79,24 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 
 	// Now we'll read the folder and see if data has existed in JSON
 	for _, f := range osInputFolderFiles {
-		if !f.IsDir() && (filepath.Ext(f.Name()) == ".jpg" || filepath.Ext(f.Name()) == ".png") {
+		inputFileName := f.Name()
+		if !f.IsDir() && (filepath.Ext(inputFileName) == ".jpg" || filepath.Ext(inputFileName) == ".png") {
+			outputFileName := inputFileName + ".png" // Always appending .png
+
 			foundIndex := -1
 			processedMD5 := "" // To avoid calculating it twice
 			processIt := false
 			for index, item := range fileInfoList.Items {
-				if item.Name == f.Name() {
+				if item.InputName == inputFileName {
 					foundIndex = index
-					newMD5 := getFileMD5(inputFolderName + "/" + f.Name())
+					newMD5 := getFileMD5(inputFolderName + "/" + inputFileName)
 					// The file has changed?
 					if item.Size != f.Size() || item.CreatedAt != f.ModTime() || item.MD5 != newMD5 {
 						processIt = true
 						processedMD5 = newMD5
 					}
 					// The output file doesn't exist?
-					if _, err := os.Stat(outputFolderName + "/" + f.Name()); os.IsNotExist(err) {
+					if _, err := os.Stat(outputFolderName + "/" + outputFileName); os.IsNotExist(err) {
 						processIt = true
 						processedMD5 = newMD5
 					}
@@ -102,13 +106,14 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 			}
 
 			if foundIndex < 0 || processIt {
-				runFunction(outputFolderName+"/"+f.Name(), inputFolderName+"/"+f.Name())
+				runFunction(outputFolderName+"/"+outputFileName, inputFolderName+"/"+inputFileName)
 				if processedMD5 == "" {
-					processedMD5 = getFileMD5(inputFolderName + "/" + f.Name())
+					processedMD5 = getFileMD5(inputFolderName + "/" + inputFileName)
 				}
 				if foundIndex < 0 {
-					fileInfoList.Items = append(fileInfoList.Items, &fileInfo{
-						Name:        f.Name(),
+					fileInfoList.Items = append(fileInfoList.Items, &FileInfo{
+						InputName:   inputFileName,
+						OutputName:  outputFileName,
 						MD5:         processedMD5,
 						Size:        f.Size(),
 						CreatedAt:   f.ModTime(),
@@ -134,7 +139,7 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 	}
 	// And now we'll remove the unnecessary files from output folder that don't exist in JSON
 	// Remove unnecessary files from output folder
-	sanitizeOutputFolder(outputFolderName, fileInfoList)
+	SanitizeOutputFolder(outputFolderName, fileInfoList)
 
 	out, err := os.Create(JSONFileName)
 	if err != nil {
@@ -147,13 +152,13 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string, ru
 }
 
 // Remove files that were not found in JSON's fileInfoList
-func sanitizeOutputFolder(outputFolderName string, fileInfoList fileInfoList) {
+func SanitizeOutputFolder(outputFolderName string, fileInfoList FileInfoList) {
 	outputFolderFiles, err := ioutil.ReadDir(outputFolderName)
 	if err != nil {
 		panic(err)
 	}
 	for _, f := range outputFolderFiles {
-		if !f.IsDir() && !isInFileInfoList(fileInfoList.Items, f.Name()) && f.Name() != ".gitignore" {
+		if !f.IsDir() && !isInFileInfoListAsOutputName(fileInfoList.Items, f.Name()) && f.Name() != ".gitignore" {
 			fmt.Printf("Deleting: %v\n", outputFolderName+"/"+f.Name())
 			if err := os.Remove(outputFolderName + "/" + f.Name()); err != nil {
 				panic(err)
@@ -163,9 +168,18 @@ func sanitizeOutputFolder(outputFolderName string, fileInfoList fileInfoList) {
 
 }
 
-func isInFileInfoList(list []*fileInfo, item string) bool {
+func isInFileInfoListAsInputName(list []*FileInfo, item string) bool {
 	for _, l := range list {
-		if l.Name == item {
+		if l.InputName == item {
+			return true
+		}
+	}
+	return false
+}
+
+func isInFileInfoListAsOutputName(list []*FileInfo, item string) bool {
+	for _, l := range list {
+		if l.OutputName == item {
 			return true
 		}
 	}

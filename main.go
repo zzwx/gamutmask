@@ -22,10 +22,25 @@ const (
 	outputDefault = "./_output"
 )
 
+var Usage = func() {
+	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+	flag.PrintDefaults()
+}
+
 // main() calls cli.ProcessChangedFilesOnly periodically
 func main() {
-	var isServer bool
-	flag.BoolVar(&isServer, "server", false, "Use to start a server")
+	flag.Usage = Usage
+	var help bool
+	flag.BoolVar(&help, "help", false, "Print this help")
+
+	var fresh bool
+	flag.BoolVar(&fresh, "fresh", false, "Start fresh by deleting all images from output")
+
+	var monitor bool
+	flag.BoolVar(&monitor, "monitor", true, "Monitor input folder for new and updated files")
+
+	var once bool
+	flag.BoolVar(&once, "once", false, "Shortuct to monitor=false")
 
 	var input string
 	flag.StringVar(&input, "input", inputDefault, "Folder name where input files are located")
@@ -33,6 +48,28 @@ func main() {
 	flag.StringVar(&output, "output", outputDefault, "Folder name where output files should be saved")
 
 	flag.Parse()
+
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 && strings.ToLower(argsWithoutProg[0]) == "help" {
+		help = true
+	}
+
+	// monitorFlag := flag.Lookup("monitor")
+	// onceFlag := flag.Lookup("once")
+	// if monitorFlag != nil && onceFlag != nil {
+	// 	fmt.Fprintf(os.Stderr, "once and monitor flags can'be use together\n")
+	// 	Usage()
+	// 	os.Exit(2)
+	// }
+
+	if help {
+		Usage()
+		os.Exit(2)
+	}
+
+	if once {
+		monitor = false
+	}
 
 	fmt.Println("Input folder:", input)
 	fmt.Println("Output folder:", output)
@@ -46,44 +83,44 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Monitoring:", input, "for new and updated images...")
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer watcher.Close()
-	err = watcher.Add(input)
-	if err != nil {
-		fmt.Println("Watcher error: ")
-		log.Fatal(err)
+	if fresh {
+		cli.SanitizeOutputFolder(output, cli.FileInfoList{})
 	}
 
-	timer := time.NewTimer(time.Second * 1)
-	go func() {
-		for {
-			select {
-			case event := <-watcher.Events:
-				if event.Name != "" {
-					if strings.HasSuffix(event.Name, "/_list.json") {
-						// Skip _list.json changes to avoid non-stopping changes
-					} else {
-						resetTimer(timer)
-					}
-				}
-			case <-watcher.Errors:
-				// Skip the errors
-			case <-timer.C:
-				cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
-			}
+	if monitor {
+		fmt.Println("Monitoring:", input, "for new and updated images...")
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			log.Fatal(err)
 		}
-	}()
+		defer watcher.Close()
+		err = watcher.Add(input)
+		if err != nil {
+			fmt.Println("Watcher error: ")
+			log.Fatal(err)
+		}
 
-	//argsWithoutProg := os.Args[1:]
-	//if len(argsWithoutProg) > 0 && strings.ToLower(argsWithoutProg[0]) == "server" {
-	if isServer {
-		fmt.Println("Starting a server...")
-	} else {
+		timer := time.NewTimer(time.Second * 1)
+		go func() {
+			for {
+				select {
+				case event := <-watcher.Events:
+					if event.Name != "" {
+						if strings.HasSuffix(event.Name, "/_list.json") {
+							// Skip _list.json changes to avoid non-stopping changes
+						} else {
+							resetTimer(timer)
+						}
+					}
+				case <-watcher.Errors:
+					// Skip the errors
+				case <-timer.C:
+					cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
+				}
+			}
+		}()
+
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		go func() {
@@ -94,6 +131,9 @@ func main() {
 			}
 		}()
 		<-make(chan int) // Blocking main() forever
+
+	} else {
+		cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc)
 	}
 
 }

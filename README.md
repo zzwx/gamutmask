@@ -2,7 +2,41 @@
 
 ## Purpose
 
-Gamutmask once executed currently runs as a daemon, looking for new and modified images in one specidifed `input` folder and outputs generated gamutmask images to the `output` folder.
+Generating gamutmask images from existing image files like this:
+
+![gamut example](https://user-images.githubusercontent.com/8169082/56142824-54c85580-5f6d-11e9-9efb-3ba2007bd253.png)
+
+Gamutmask tool once executed generates gamutmask images for every image found in the `input` folder. By default it runs until stopped.
+
+To run only once:
+```
+$ gamutmask -once
+```
+
+To delete all output images before processing:
+```
+$ gamutmask -fresh
+```
+
+To modify output folder by passing ``-output`` parameter:
+
+```
+$ gamutmask -output ./output
+```
+
+The tool monitors the `./_input` folder for images unless requested to do it `once`. The folder can also be changed by passing a value for `-intput` parameter:
+
+```
+$ gamutmask -input ./input
+```
+
+For help issue
+```
+$ gamutmask help
+```
+
+
+## Usage as a Library
 
 One can certainly simply use `internal/lib/lib.go` containing the core function itself inside his own project:
 
@@ -10,38 +44,22 @@ One can certainly simply use `internal/lib/lib.go` containing the core function 
 func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image.RGBA64)
 ```
 
-The resulted images look like this:
-
-![gamut example](https://user-images.githubusercontent.com/8169082/55894480-2b33b680-5b88-11e9-9709-432a05dd416f.jpg)
 
 ## Requirement
 
 * go 1.12
 
-## To Compile and Install From Source
+## To Build and Install From Source
 
-To resolve dependency tree, simply `go build`.
+To resolve dependency tree, simply:
 
 ```
 $ go mod verify
 $ go build
 ```
 
-In order to run you will need an output folder. By default the ``_output`` folder is used which you'll need to create if you want to use the default one:
+To install to golang path bin:
 
 ```
-$ mkdir _output
+$ go install
 ```
-
-You can certainly modify output folder by passing ``--output`` parameter:
-
-```
-$ gamutmask.exe --output ./output
-```
-
-Once executed the tool monitors the `./_input` folder for images. That can also be changed by passing a value after `--intput` parameter:
-
-```
-$ gamutmask.exe --input ./input
-```
-
