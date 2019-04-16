@@ -4,6 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"io/ioutil"
 	"math"
@@ -46,10 +49,38 @@ func marshalJSON(w io.Writer, data *FileInfoList) error {
 
 var mtx sync.Mutex
 
+func Supported(fileName string) bool {
+	switch filepath.Ext(fileName) {
+	case ".jpg", ".jpeg", ".png":
+		return true
+	}
+	return false
+}
+
+func Decode(f *os.File) image.Image {
+	var img image.Image
+	var err error
+	switch filepath.Ext(f.Name()) {
+	case ".jpg", ".jpeg":
+		img, err = jpeg.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	case ".png":
+		img, err = png.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	default:
+		panic(filepath.Ext(f.Name()) + " Unsupported image type")
+	}
+	return img
+}
+
 // ProcessChangedFilesOnly will check if the input folder has any changes and update output folder + the JSON file
 // and execute runFunction(outputFileFullPath,inputFileFullPath) against each changed file
 func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string,
-	runFunction func(string, string, *RunGamutSettings) (int, error),
+	runFunction func(string, string, *RunGamutSettings, func(*os.File) image.Image) (int, error),
 	settings *RunGamutSettings) {
 
 	// We don't want this function to be called simultaneously
@@ -82,7 +113,7 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string,
 	// Now we'll read the folder and see if data has existed in JSON
 	for _, f := range osInputFolderFiles {
 		inputFileName := f.Name()
-		if !f.IsDir() && (filepath.Ext(inputFileName) == ".jpg" || filepath.Ext(inputFileName) == ".png") {
+		if !f.IsDir() && Supported(inputFileName) {
 			outputFileName := inputFileName + ".png" // Always appending .png
 
 			foundIndex := -1
@@ -108,7 +139,7 @@ func ProcessChangedFilesOnly(inputFolderName string, outputFolderName string,
 			}
 
 			if foundIndex < 0 || processIt {
-				runFunction(outputFolderName+"/"+outputFileName, inputFolderName+"/"+inputFileName, settings)
+				runFunction(outputFolderName+"/"+outputFileName, inputFolderName+"/"+inputFileName, settings, Decode)
 				if processedMD5 == "" {
 					processedMD5 = getFileMD5(inputFolderName + "/" + inputFileName)
 				}

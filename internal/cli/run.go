@@ -3,10 +3,8 @@ package cli
 import (
 	"fmt"
 	"image"
-	"image/jpeg"
 	"image/png"
 	"os"
-	"path/filepath"
 	"time"
 
 	"runtime"
@@ -30,7 +28,9 @@ var DefaultRunGamutSettings = RunGamutSettings{250, 250, 2, 2}
 // RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
 // The file generated is going to be PNG so the outputFileName by convention
 // is going to be <inputFileNameWithExtention>.png
-func RunGamutFunc(outputFileName string, inputFileName string, settings *RunGamutSettings) (exitCode int, err error) {
+func RunGamutFunc(outputFileName string, inputFileName string,
+	settings *RunGamutSettings,
+	decodeFunc func(f *os.File) image.Image) (exitCode int, err error) {
 	if settings == nil {
 		settings = &DefaultRunGamutSettings
 	}
@@ -51,21 +51,7 @@ func RunGamutFunc(outputFileName string, inputFileName string, settings *RunGamu
 	bar.Increment()
 	bar.Update()
 
-	var img image.Image
-	switch filepath.Ext(f.Name()) {
-	case ".jpg":
-		img, err = jpeg.Decode(f)
-		if err != nil {
-			panic(err)
-		}
-	case ".png":
-		img, err = png.Decode(f)
-		if err != nil {
-			panic(err)
-		}
-	default:
-		panic(filepath.Ext(f.Name()) + " Unsupported image type")
-	}
+	var img = decodeFunc(f)
 
 	if img == nil {
 		return 1, fmt.Errorf("Image couldn't be read: %s", f.Name())
