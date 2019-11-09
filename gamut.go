@@ -3,8 +3,10 @@ package cli
 import (
 	"fmt"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"os"
+	"path/filepath"
 	"time"
 
 	"runtime"
@@ -25,12 +27,19 @@ type RunGamutSettings struct {
 
 var DefaultRunGamutSettings = RunGamutSettings{250, 250, 2, 2}
 
+func RunGamutFuncGen(settings *RunGamutSettings) func(inputFileName string, outputFileName string) (exitCode int, err error) {
+	if settings == nil {
+		settings = &DefaultRunGamutSettings
+	}
+	return func(inputFileName string, outputFileName string) (exitCode int, err error) {
+		return RunGamutFunc(inputFileName, outputFileName, settings)
+	}
+}
+
 // RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
 // The file generated is going to be PNG so the outputFileName by convention
 // is going to be <inputFileNameWithExtention>.png
-func RunGamutFunc(outputFileName string, inputFileName string,
-	settings *RunGamutSettings,
-	decodeFunc func(f *os.File) image.Image) (exitCode int, err error) {
+func RunGamutFunc(inputFileName string, outputFileName string, settings *RunGamutSettings) (exitCode int, err error) {
 	if settings == nil {
 		settings = &DefaultRunGamutSettings
 	}
@@ -51,7 +60,7 @@ func RunGamutFunc(outputFileName string, inputFileName string,
 	bar.Increment()
 	bar.Update()
 
-	var img = decodeFunc(f)
+	var img = Decode(f)
 
 	if img == nil {
 		return 1, fmt.Errorf("Image couldn't be read: %s", f.Name())
@@ -79,6 +88,26 @@ func RunGamutFunc(outputFileName string, inputFileName string,
 		comma(strconv.Itoa(img.Bounds().Dx()*img.Bounds().Dy())))
 
 	return 0, nil
+}
+
+func Decode(f *os.File) image.Image {
+	var img image.Image
+	var err error
+	switch filepath.Ext(f.Name()) {
+	case ".jpg", ".jpeg":
+		img, err = jpeg.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	case ".png":
+		img, err = png.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+	default:
+		panic(filepath.Ext(f.Name()) + " Unsupported image type")
+	}
+	return img
 }
 
 func eraseLine() {
