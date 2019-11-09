@@ -1,7 +1,9 @@
 .vscode/
+.idea/
 _input/
 _output/
 vendor/
+tmp/
 
 gamutmask.exe
 gamutmask

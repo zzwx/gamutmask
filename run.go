@@ -1,19 +1,21 @@
-package cli
+package main
 
 import (
 	"fmt"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/zzwx/gamutmask/lib"
 
 	"runtime"
 
 	"strconv"
 
 	"gopkg.in/cheggaaa/pb.v1"
-
-	"github.com/zzwx/gamutmask/internal/lib"
 )
 
 type RunGamutSettings struct {
@@ -25,12 +27,31 @@ type RunGamutSettings struct {
 
 var DefaultRunGamutSettings = RunGamutSettings{250, 250, 2, 2}
 
+// RunGamutFuncGen generates a function that satisfies requirement of returned function signature while keeping reference
+// of the settings and using it during actual call of the RunGamutFunc which requres settings
+func RunGamutFuncGen(settings *RunGamutSettings) func(inputFileName string, outputFileName string) (exitCode int, err error) {
+	if settings == nil {
+		settings = &DefaultRunGamutSettings
+	}
+	return func(inputFileName string, outputFileName string) (exitCode int, err error) {
+		return RunGamutFunc(inputFileName, outputFileName, settings)
+	}
+}
+
+func ensureDir(dir string) error {
+	err := os.Mkdir(dir, 0700)
+	if err != nil {
+		if !os.IsExist(err) { // We skip already existing dir error
+			return fmt.Errorf("error creating directory: %w", err)
+		}
+	}
+	return nil
+}
+
 // RunGamutFunc will execute GenerateGamutMask against inputFileName and generate outputFileName
 // The file generated is going to be PNG so the outputFileName by convention
 // is going to be <inputFileNameWithExtention>.png
-func RunGamutFunc(outputFileName string, inputFileName string,
-	settings *RunGamutSettings,
-	decodeFunc func(f *os.File) image.Image) (exitCode int, err error) {
+func RunGamutFunc(inputFileName string, outputFileName string, settings *RunGamutSettings) (exitCode int, err error) {
 	if settings == nil {
 		settings = &DefaultRunGamutSettings
 	}
@@ -51,10 +72,10 @@ func RunGamutFunc(outputFileName string, inputFileName string,
 	bar.Increment()
 	bar.Update()
 
-	var img = decodeFunc(f)
+	img, err := Decode(f)
 
-	if img == nil {
-		return 1, fmt.Errorf("Image couldn't be read: %s", f.Name())
+	if err != nil {
+		return 1, fmt.Errorf("image couldn't be read: %w", err)
 	}
 
 	bar.Increment()
@@ -64,9 +85,14 @@ func RunGamutFunc(outputFileName string, inputFileName string,
 	bar.Increment()
 	bar.Update()
 
+	// Making sure directory exists
+	if err := ensureDir(filepath.Dir(outputFileName)); err != nil {
+		fmt.Errorf("error ensuring directory exists: %w", err)
+	}
+
 	out, err := os.Create(outputFileName)
 	if err != nil {
-		panic(err)
+		fmt.Errorf("error creating output file: %w", err)
 	}
 	bar.Increment()
 	bar.Update()
@@ -79,6 +105,27 @@ func RunGamutFunc(outputFileName string, inputFileName string,
 		comma(strconv.Itoa(img.Bounds().Dx()*img.Bounds().Dy())))
 
 	return 0, nil
+}
+
+// Decode wraps logic of different images types into one function
+func Decode(f *os.File) (image.Image, error) {
+	var img image.Image
+	var err error
+	switch filepath.Ext(f.Name()) {
+	case ".jpg", ".jpeg":
+		img, err = jpeg.Decode(f)
+		if err != nil {
+			return nil, fmt.Errorf("can't decode image: %w", err)
+		}
+	case ".png":
+		img, err = png.Decode(f)
+		if err != nil {
+			return nil, fmt.Errorf("can't decode image: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported image type: %v", filepath.Ext(f.Name()))
+	}
+	return img, nil
 }
 
 func eraseLine() {

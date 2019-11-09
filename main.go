@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"log"
@@ -12,9 +14,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/zzwx/gamutmask/internal/cli"
-
 	"github.com/fsnotify/fsnotify"
+
+	"github.com/zzwx/gamutmask/lib"
 )
 
 const (
@@ -22,25 +24,49 @@ const (
 	outputDefault = "./_output"
 )
 
-var Usage = func() {
+// Usage prints how to use the command-line utility
+func Usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
-// main() calls cli.ProcessChangedFilesOnly periodically
+func isInputFileForProcessing(folderName, fileName string) bool {
+	switch filepath.Ext(fileName) {
+	case ".jpg", ".jpeg", ".png":
+		return true
+	}
+	return false
+}
+
+func isOutputFileSanitizable(outputFolderName, outputFileName string) bool {
+	return true
+}
+
+func beforeDelete(folderName, fileName string) bool {
+	if fileName == ".gitignore" {
+		return false
+	}
+	fmt.Printf("Deleting: %v\n", folderName+"/"+fileName)
+	return true
+}
+
+// main() calls ProcessChangedFilesOnly periodically
 func main() {
 	flag.Usage = Usage
 	var help bool
 	flag.BoolVar(&help, "help", false, "Print this help")
 
-	var fresh bool
-	flag.BoolVar(&fresh, "fresh", false, "Start fresh by deleting all images from output")
-
+	//var fresh bool
+	//flag.BoolVar(&fresh, "fresh", false, "Start fresh by deleting all images from output")
+	//
 	var monitor bool
 	flag.BoolVar(&monitor, "monitor", true, "Monitor input folder for new and updated files")
 
 	var once bool
 	flag.BoolVar(&once, "once", false, "Shortuct to monitor=false")
+
+	var recursive bool
+	flag.BoolVar(&recursive, "recursive", false, "Walk all subfolders of the input folder too recursively")
 
 	var input string
 	flag.StringVar(&input, "input", inputDefault, "Folder name where input files are located")
@@ -92,11 +118,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if fresh {
-		cli.SanitizeOutputFolder(output, cli.FileInfoList{})
-	}
+	//if fresh {
+	//	lib.SanitizeOutputFolder(output, isOutputFileSanitizable, &lib.FileInfoList{})
+	//}
 
-	var settings = cli.RunGamutSettings{
+	var settings = RunGamutSettings{
 		Width:    width,
 		Height:   height,
 		PaddingX: paddingX,
@@ -106,33 +132,33 @@ func main() {
 	if monitor {
 		fmt.Println("Monitoring:", input, "for new and updated images...")
 
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer watcher.Close()
-		err = watcher.Add(input)
-		if err != nil {
-			fmt.Println("Watcher error: ")
-			log.Fatal(err)
-		}
+		watcher := newWatcher(input, recursive)
 
 		timer := time.NewTimer(time.Second * 1)
+		fallbackTimer := time.NewTimer(time.Second * 10)
+		restart := make(chan int)
 		go func() {
 			for {
 				select {
 				case event := <-watcher.Events:
-					if event.Name != "" {
-						if strings.HasSuffix(event.Name, "/_list.json") {
+					if event.Name /*relativePath*/ != "" {
+						if filepath.Base(event.Name) == "_list.json" {
 							// Skip _list.json changes to avoid non-stopping changes
 						} else {
-							resetTimer(timer)
+							if recursive {
+								restart <- 0
+							} else {
+								resetTimer(timer, time.Second*2)
+							}
 						}
 					}
 				case <-watcher.Errors:
 					// Skip the errors
 				case <-timer.C:
-					cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc, &settings)
+					executeProcess(recursive, input, output, settings)
+				case <-fallbackTimer.C:
+					resetTimer(timer, time.Nanosecond)
+					resetTimer(fallbackTimer, time.Second*10)
 				}
 			}
 		}()
@@ -140,27 +166,88 @@ func main() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 		go func() {
-			for range c {
-				// TODO Wait for operations to finish
-				fmt.Println("\nStopped Monitoring:", input)
-				os.Exit(0) // We consider it a valid termination
+			for {
+				select {
+				case <-c:
+					// TODO Wait for operations to finish gracefully
+					fmt.Println("\nStopped Monitoring:", input)
+					os.Exit(0) // We consider it a valid termination
+				case <-restart:
+					watcher.Close()
+					watcher = newWatcher(input, recursive)
+					resetTimer(timer, time.Second*2)
+				}
 			}
 		}()
 		<-make(chan int) // Blocking main() forever
 
 	} else {
-		cli.ProcessChangedFilesOnly(input, output, cli.RunGamutFunc, &settings)
+		executeProcess(recursive, input, output, settings)
 	}
 
 }
 
-func resetTimer(timer *time.Timer) {
+func newWatcher(input string, isRecursive bool) *fsnotify.Watcher {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	addToWatcher(watcher, input, isRecursive)
+	return watcher
+}
+
+func addToWatcher(watcher *fsnotify.Watcher, input string, isRecursive bool) {
+	err := watcher.Add(input)
+	if err != nil {
+		log.Fatal("Watcher error: ", err)
+	}
+	if isRecursive {
+		files, err := ioutil.ReadDir(input)
+		if err != nil {
+			log.Fatal("Adding folder tot watcher error: ", err)
+		}
+		for _, f := range files {
+			if f.IsDir() {
+				addToWatcher(watcher, input+"/"+f.Name(), isRecursive)
+			}
+		}
+	}
+}
+
+var outputFileName = func(inputFileName string) string {
+	return inputFileName + ".png" // Simply appending .png at the end
+}
+
+func executeProcess(recursive bool, input string, output string, settings RunGamutSettings) {
+	if recursive {
+		lib.ProcessChangedFilesOnlyRecursively(input,
+			output,
+			outputFileName,
+			isInputFileForProcessing,
+			func(inputFolderName string) string {
+				return inputFolderName + "/_list.json"
+			},
+			RunGamutFuncGen(&settings),
+			beforeDelete)
+	} else {
+		lib.ProcessChangedFilesOnly(
+			input,
+			output,
+			outputFileName,
+			isInputFileForProcessing,
+			input+"/_list.json",
+			RunGamutFuncGen(&settings),
+			beforeDelete)
+	}
+}
+
+func resetTimer(timer *time.Timer, duration time.Duration) {
 	if timer == nil {
-		timer = time.NewTimer(time.Second * 2)
+		timer = time.NewTimer(duration)
 	} else {
 		if !timer.Stop() {
 			//<-timer.C
 		}
-		timer.Reset(time.Second * 2)
+		timer.Reset(duration)
 	}
 }

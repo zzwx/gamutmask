@@ -15,9 +15,9 @@ To run only once:
 $ gamutmask -once
 ```
 
-To delete all output images before processing:
+To run recursively:
 ```
-$ gamutmask -fresh
+$ gamutmask -recursive
 ```
 
 To modify output folder by passing ``-output`` parameter:
@@ -46,8 +46,6 @@ Command line also supports the following parameters:
 ## Full Help
 
 ```
-  -fresh
-        Start fresh by deleting all images from output
   -height int
         Height of the resulting gamut image (default 250)
   -help
@@ -64,22 +62,25 @@ Command line also supports the following parameters:
         Widgth of the resulting gamut image (default 2)
   -paddingY int
         Widgth of the resulting gamut image (default 2)
+  -recursive
+        Walk all subfolders of the input folder too recursively
   -width int
         Widgth of the resulting gamut image (default 250)
 ```
 
 ## Usage as a Library
 
-One can certainly simply use `internal/lib/lib.go` containing the core function itself inside his own project:
+One can `/lib` submodule containing the core function itself inside their own project:
 
 ```
 func GenerateGamutMask(img image.Image, maskWidth, maskHeight int) (wheel *image.RGBA64)
 ```
 
+as well as `ProcessChangedFilesOnly` function in order to process sets of files some different way.
 
 ## Requirement
 
-* go 1.12
+* go 1.13 (for error unwrapping)
 
 ## To Build and Install From Source
 
